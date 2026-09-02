@@ -21,6 +21,7 @@ _envops:
 _exclude:
   - copier.yml
   - scripts
+  - manifests
   - README.md
   - .git
 _tasks:
