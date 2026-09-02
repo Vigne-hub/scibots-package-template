@@ -4,12 +4,12 @@
 # channel metadata (2026-09-02).
 - repo: arduino-helpers
   source: AlexSklav/arduino-helpers
-  source_ref: master
+  source_ref: python3
   answers:
     package_name: arduino-helpers
     module_name: arduino_helpers
     package_dir: .
-    version: '0.7'
+    version: 0.7.1
     description: arduino-helpers
     license: BSD-3-Clause
     license_file: COPYING
@@ -135,12 +135,12 @@
   branch: master
 - repo: path-helpers
   source: AlexSklav/path-helpers
-  source_ref: master
+  source_ref: python3
   answers:
     package_name: path-helpers
     module_name: path_helpers
     package_dir: .
-    version: 0.8.2
+    version: 0.8.3
     description: path_helpers
     license: BSD-3-Clause
     license_file: ''
