@@ -379,3 +379,40 @@
       dropbot-headers: '*'
     lib_name: NadaMQ
   branch: master
+- repo: hv-switching-board-firmware
+  source: AlexSklav/hv-switching-board-firmware
+  source_ref: master
+  branch: master
+  answers:
+    package_name: hv-switching-board
+    module_name: hv_switching_board
+    package_dir: .
+    version: '0.19'
+    description: Arduino-based high-voltage switching board firmware and Python API.
+    license: MIT
+    license_file: ''
+    flavor: firmware
+    scripts: {}
+    lib_name: HvSwitchingBoard
+    host_dependencies:
+      numpy: '*'
+      base-node: '>=0.16.4'
+      pytables: '*'
+      platformio: '*'
+      base-node-rpc: '*'
+      path-helpers: '*'
+      nanopb-helpers: '*'
+      dropbot-headers: '*'
+      platformio-helpers: '>=0.10.5'
+      serial-device: '*'
+      intelhex: '*'
+    run_dependencies:
+      base-node: '>=0.16.4'
+      pytables: '*'
+      platformio: '*'
+      base-node-rpc: '*'
+      nanopb-helpers: '*'
+      dropbot-headers: '*'
+      platformio-helpers: '>=0.10.5'
+      serial-device: '*'
+      intelhex: '*'
