@@ -222,17 +222,17 @@
     scripts: {}
     run_dependencies:
       numpy: '*'
-      platformio: '*'
+      platformio: '>=6.1.16'
       path-helpers: '*'
       platformio-helpers: '*'
     host_dependencies:
       numpy: '*'
-      platformio: '*'
+      platformio: '>=6.1.16'
       path-helpers: '*'
       platformio-helpers: '*'
       dropbot-headers: '*'
     dev_run_dependencies:
-      platformio: '*'
+      platformio: '>=6.1.16'
       dropbot-headers: '*'
     lib_name: BaseNode
   branch: master
@@ -256,7 +256,7 @@
       blinker: '*'
       protobuf: 5.29.*
       or-event: '*'
-      platformio: '*'
+      platformio: '>=6.1.16'
       asyncserial: '>=0.3.2'
       json-tricks: '*'
       arduino-rpc: '*'
@@ -273,7 +273,7 @@
       blinker: '*'
       protobuf: 5.29.*
       or-event: '*'
-      platformio: '*'
+      platformio: '>=6.1.16'
       asyncserial: '>=0.3.2'
       json-tricks: '*'
       arduino-rpc: '*'
@@ -285,7 +285,7 @@
       platformio-helpers: '*'
       dropbot-headers: '*'
     dev_run_dependencies:
-      platformio: '*'
+      platformio: '>=6.1.16'
       dropbot-headers: '*'
     lib_name: BaseNodeRpc
   branch: master
@@ -314,7 +314,7 @@
       base-node-rpc: '*'
       dropbot-headers: '*'
     dev_run_dependencies:
-      platformio: '*'
+      platformio: '>=6.1.16'
       dropbot-headers: '*'
     lib_name: TeensyMinimalRpc
   branch: master
@@ -398,7 +398,7 @@
       numpy: '*'
       base-node: '>=0.16.4'
       pytables: '*'
-      platformio: '*'
+      platformio: '>=6.1.16'
       base-node-rpc: '*'
       path-helpers: '*'
       nanopb-helpers: '*'
@@ -409,7 +409,7 @@
     run_dependencies:
       base-node: '>=0.16.4'
       pytables: '*'
-      platformio: '*'
+      platformio: '>=6.1.16'
       base-node-rpc: '*'
       nanopb-helpers: '*'
       dropbot-headers: '*'
