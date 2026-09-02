@@ -6,8 +6,9 @@ Runs inside the target repository (copier `_tasks`):
 - removes versioneer / setup.py / setup.cfg / .conda-recipe
 - drops versioneer lines from MANIFEST.in
 - makes sure .pixi/ is ignored
-- headers flavor: patches file_handler.py so it no longer imports versioneer
-  and takes SRC_DIR / PREFIX / the package name from the build environment
+- headers / firmware flavors: patches file_handler.py so it no longer imports
+  versioneer, takes SRC_DIR / PREFIX / the package name from the build
+  environment, and (firmware) fails loudly when the PlatformIO build fails
 """
 import argparse
 import pathlib
@@ -36,6 +37,41 @@ def read_version() -> str:
     return _re.search(r'^__version__ = "([^"]+)"', text, _re.M).group(1)
 '''
 
+PIO_RUN = "subprocess.run(['pio', 'run'], env=env)"
+PIO_RUN_CHECKED = "subprocess.run(['pio', 'run'], env=env, check=True)"
+LIB_EXTRA = "    env['PLATFORMIO_LIB_EXTRA_DIRS'] = str(pioh.conda_arduino_include_path())\n"
+CORE_DIR = (
+    "    if 'PLATFORMIO_CORE_DIR' not in env and os.name == 'nt' and env.get('HOMEDRIVE') and env.get('HOMEPATH'):\n"
+    "        # rattler-build points HOME at its (deep) work directory; from there the\n"
+    "        # toolchain include paths exceed MAX_PATH. Keep the PlatformIO core dir\n"
+    "        # in the real user profile instead.\n"
+    "        env['PLATFORMIO_CORE_DIR'] = os.path.join(env['HOMEDRIVE'] + env['HOMEPATH'], '.platformio')\n"
+)
+
+
+def unwrap_try_block(s: str) -> str:
+    """Remove the `try: ... except FileNotFoundError: print('Failed to generate
+    firmware')` wrapper around the firmware build so failures propagate."""
+    lines = s.splitlines(keepends=True)
+    out, i = [], 0
+    while i < len(lines):
+        line = lines[i]
+        m = re.match(r'^(\s*)try:\s*$', line)
+        if m:
+            indent = m.group(1)
+            j = i + 1
+            while j < len(lines) and not re.match(
+                    r'^' + re.escape(indent) + r'except FileNotFoundError:\s*$', lines[j]):
+                j += 1
+            if j + 1 < len(lines) and 'Failed to generate firmware' in lines[j + 1]:
+                for body in lines[i + 1:j]:
+                    out.append(body[4:] if body.startswith(indent + '    ') else body)
+                i = j + 2
+                continue
+        out.append(line)
+        i += 1
+    return ''.join(out)
+
 
 def patch_file_handler(root: pathlib.Path, module_dir: str, package_name: str,
                        module_name: str = '', lib_name: str = '') -> None:
@@ -51,7 +87,6 @@ def patch_file_handler(root: pathlib.Path, module_dir: str, package_name: str,
     s = re.sub(r'^import versioneer\n', '', s, count=1, flags=re.M)
     if 'versioneer.get_version()' in s:
         s = s.replace('versioneer.get_version()', 'read_version()')
-        # insert read_version() after the last top-level import block
         imports = list(re.finditer(r'^(?:from \S+ import .*|import \S+.*)\n', s, flags=re.M))
         if imports:
             pos = imports[-1].end()
@@ -88,28 +123,14 @@ def patch_file_handler(root: pathlib.Path, module_dir: str, package_name: str,
         if old in s:
             s = s.replace(old, new, 1)
 
-    # 3. firmware builds: fail loudly and keep the PlatformIO core dir short on
-    #    Windows (rattler-build's HOME is deep enough to exceed MAX_PATH).
-    if "subprocess.run(['pio', 'run'], env=env)" in s:
-        s = s.replace("subprocess.run(['pio', 'run'], env=env)",
-                      "subprocess.run(['pio', 'run'], env=env, check=True)")
-        s = re.sub(r"
-(\s*)try:
-((?:    .*
-|\s*
-)*?)except FileNotFoundError:
-    print\('Failed to generate firmware'\)
-",
-                   lambda m: '
-' + re.sub(r'^' + m.group(1) + '    ', m.group(1), m.group(2), flags=re.M), s, count=1)
-        core = ("    if 'PLATFORMIO_CORE_DIR' not in env and os.name == 'nt' and env.get('HOMEDRIVE') and env.get('HOMEPATH'):
-"
-                "        env['PLATFORMIO_CORE_DIR'] = os.path.join(env['HOMEDRIVE'] + env['HOMEPATH'], '.platformio')
-")
-        s = s.replace("    env['PLATFORMIO_LIB_EXTRA_DIRS'] = str(pioh.conda_arduino_include_path())
-",
-                      "    env['PLATFORMIO_LIB_EXTRA_DIRS'] = str(pioh.conda_arduino_include_path())
-" + core, 1)
+    # 3. firmware builds: fail loudly; short PlatformIO core dir on Windows
+    if PIO_RUN in s:
+        s = s.replace(PIO_RUN, PIO_RUN_CHECKED)
+        s = unwrap_try_block(s)
+        if LIB_EXTRA in s:
+            s = s.replace(LIB_EXTRA, LIB_EXTRA + CORE_DIR, 1)
+        else:
+            problems.append('PLATFORMIO_LIB_EXTRA_DIRS line not found; core dir not pinned')
 
     if s != original:
         fh.write_text(s)

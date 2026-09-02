@@ -80,6 +80,7 @@ def process(entry, opts):
     run(['git', 'remote', 'add', 'upstream', f'https://github.com/{source}.git'], cwd=wd)
     run(['git', 'fetch', '-q', '--tags', 'upstream', src_ref], cwd=wd)
     run(['git', 'checkout', '-q', '-B', branch, 'FETCH_HEAD'], cwd=wd)
+    run(['git', 'reset', '-q', '--hard', 'FETCH_HEAD'], cwd=wd)
     run(['git', 'clean', '-fdq', '-e', '.pixi'], cwd=wd)
 
     # 2. template
@@ -115,14 +116,35 @@ def process(entry, opts):
     if opts.no_publish:
         return
 
-    # 5. publish current version
-    time.sleep(8)
-    run(['gh', 'workflow', 'run', 'publish.yml', '--repo', fork, '--ref', branch,
-         '-f', 'publish_current=true'])
-    time.sleep(25)
-    run_id = run(['gh', 'run', 'list', '--repo', fork, '--workflow=publish.yml',
-                  '--event', 'workflow_dispatch', '--limit', '1', '--json', 'databaseId',
-                  '--jq', '.[0].databaseId'], capture=True)
+    # 5. publish. The push itself triggers publish.yml: when HEAD carries
+    #    release-worthy commits since the last v* tag that run bumps and
+    #    publishes; otherwise it skips and we publish the current version.
+    time.sleep(20)
+    push_run = run(['gh', 'run', 'list', '--repo', fork, '--workflow=publish.yml',
+                    '--event', 'push', '--limit', '1', '--json', 'databaseId',
+                    '--jq', '.[0].databaseId'], capture=True)
+    published = False
+    if push_run:
+        subprocess.run(['gh', 'run', 'watch', push_run, '--repo', fork, '--interval', '15'],
+                       capture_output=True)
+        steps = json.loads(run(['gh', 'run', 'view', push_run, '--repo', fork, '--json',
+                                'conclusion,jobs'], capture=True, quiet=True))
+        pub = [st for j in steps['jobs'] for st in j['steps'] if st['name'] == 'Publish']
+        if steps['conclusion'] == 'success' and pub and pub[0]['conclusion'] == 'success':
+            published = True
+            print(f'  push-triggered run {push_run} released a new version')
+        elif steps['conclusion'] != 'success':
+            subprocess.run(['gh', 'run', 'view', push_run, '--repo', fork, '--log-failed'])
+            raise SystemExit(f'{repo}: push-triggered publish failed (run {push_run})')
+    if published:
+        run_id = push_run
+    else:
+        run(['gh', 'workflow', 'run', 'publish.yml', '--repo', fork, '--ref', branch,
+             '-f', 'publish_current=true'])
+        time.sleep(25)
+        run_id = run(['gh', 'run', 'list', '--repo', fork, '--workflow=publish.yml',
+                      '--event', 'workflow_dispatch', '--limit', '1', '--json', 'databaseId',
+                      '--jq', '.[0].databaseId'], capture=True)
     rc = subprocess.run(['gh', 'run', 'watch', run_id, '--repo', fork, '--exit-status',
                          '--interval', '15'], capture_output=True).returncode
     concl = run(['gh', 'run', 'view', run_id, '--repo', fork, '--json', 'conclusion',
@@ -133,9 +155,10 @@ def process(entry, opts):
         raise SystemExit(f'{repo}: publish failed (run {run_id})')
 
     # 6. verify
-    out = run(['pixi', 'search', '-c', 'https://prefix.dev/vigne-hub/scibots',
-               answers['package_name'], '--limit', '1'], capture=True, check=False)
-    print('  channel:', ' '.join(l.strip() for l in out.splitlines() if l.startswith(('Version', 'Build'))))
+    out = subprocess.run(['pixi', 'search', '-c', 'https://prefix.dev/vigne-hub/scibots',
+                          answers['package_name'], '--limit', '1'], capture_output=True, text=True)
+    print('  channel:', ' '.join(l.split()[-1] for l in (out.stdout + out.stderr).splitlines()
+                                 if l.startswith(('Version', 'Build'))) or (out.stdout + out.stderr).strip()[:200])
 
 
 def main():
