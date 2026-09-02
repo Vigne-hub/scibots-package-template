@@ -59,11 +59,14 @@ def unwrap_try_block(s: str) -> str:
         m = re.match(r'^(\s*)try:\s*$', line)
         if m:
             indent = m.group(1)
+            # the try body ends at the first non-blank line indented <= the try
             j = i + 1
-            while j < len(lines) and not re.match(
-                    r'^' + re.escape(indent) + r'except FileNotFoundError:\s*$', lines[j]):
+            while j < len(lines) and (lines[j].strip() == '' or
+                                      len(lines[j]) - len(lines[j].lstrip(' ')) > len(indent)):
                 j += 1
-            if j + 1 < len(lines) and 'Failed to generate firmware' in lines[j + 1]:
+            if (j + 1 < len(lines)
+                    and re.match(r'^' + re.escape(indent) + r'except FileNotFoundError:\s*$', lines[j])
+                    and 'Failed to generate firmware' in lines[j + 1]):
                 for body in lines[i + 1:j]:
                     out.append(body[4:] if body.startswith(indent + '    ') else body)
                 i = j + 2
