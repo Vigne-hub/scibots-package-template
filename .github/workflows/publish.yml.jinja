@@ -1,0 +1,123 @@
+name: Publish to prefix.dev
+
+# Builds the conda package with pixi-build and publishes it to
+# https://prefix.dev/[[ channel_ref ]] on every push to [[ default_branch ]] that
+# contains release-worthy conventional commits. commitizen derives the bump
+# from the commit messages since the last v* tag (fix/refactor/perf -> patch,
+# feat -> minor, BREAKING CHANGE / ! -> major), stamps pyproject.toml and
+# _version.py (see [tool.commitizen] version_files) and maintains
+# CHANGELOG.md. Pushes with nothing release-worthy (docs/ci/chore or
+# non-conventional messages) skip publishing cleanly.
+#
+# The release commit + tag are pushed only after a successful publish, so
+# the repo always reflects the channel. Manual runs can force an explicit
+# version, or publish the version currently in pyproject.toml as-is
+# (publish_current) -- used to seed the channel with an existing release.
+#
+# Auth: the PREFIX_API_KEY repository secret when it is set; otherwise
+# prefix.dev trusted publishing (GitHub OIDC via id-token: write), which
+# needs this repo + workflow registered as a trusted publisher on the channel.
+#
+# Generated from scibots-package-template; edit there and `copier update`.
+
+on:
+  push:
+    branches: ["[[ default_branch ]]"]
+    paths-ignore:
+      - "README.md"
+      - "CHANGELOG.md"
+      - "docs/**"
+      - ".github/**"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Explicit version (X.Y.Z); empty = derive from conventional commits"
+        required: false
+        default: ""
+      publish_current:
+        description: "Publish the current version without bumping"
+        type: boolean
+        required: false
+        default: false
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # push the release commit + tag
+      id-token: write   # prefix.dev trusted publishing (when no API key)
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # commitizen reads the commit history + v* tags
+
+      - uses: prefix-dev/setup-pixi@v0.10.2
+        with:
+          pixi-version: v0.78.0
+          run-install: false
+
+      - name: Install commitizen
+        run: pipx install "commitizen>=4,<5"
+
+      - name: Bump version + changelog (commitizen)
+        id: bump
+        # Exit codes verified against cz 4.16: 3 = no commits since the
+        # last tag, 21 = commits exist but none are release-worthy -- both
+        # mean "nothing to publish", not failure.
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if [ "${{ github.event.inputs.publish_current }}" = "true" ]; then
+            echo "Publishing the current version without a bump."
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            grep -n '^version' pyproject.toml
+            exit 0
+          fi
+          set +e
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            cz bump --yes "${{ github.event.inputs.version }}"
+          else
+            cz bump --yes
+          fi
+          rc=$?
+          set -e
+          if [ "$rc" -eq 3 ] || [ "$rc" -eq 21 ]; then
+            echo "No release-worthy commits since the last tag; skipping."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          [ "$rc" -eq 0 ] || exit "$rc"
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+          grep -n '^version' pyproject.toml
+
+      - name: Build
+        if: steps.bump.outputs.skip != 'true'
+        run: pixi build --output-dir dist
+
+      - name: Publish
+        if: steps.bump.outputs.skip != 'true'
+        # `pixi upload prefix` takes the canonical namespace/channel reference
+        # (`pixi publish --target-channel` drops the namespace). It reads
+        # PREFIX_API_KEY when set and falls back to OIDC trusted publishing.
+        env:
+          PREFIX_API_KEY_SECRET: ${{ secrets.PREFIX_API_KEY }}
+        run: |
+          if [ -n "$PREFIX_API_KEY_SECRET" ]; then
+            export PREFIX_API_KEY="$PREFIX_API_KEY_SECRET"
+            echo "Authenticating with the PREFIX_API_KEY secret."
+          else
+            echo "No PREFIX_API_KEY secret; using trusted publishing (OIDC)."
+          fi
+          pixi upload prefix --channel [[ channel_ref ]] dist/*.conda
+
+      - name: Push release commit + tag
+        if: steps.bump.outputs.skip != 'true'
+        # Only after a successful publish, so the repo never claims a
+        # version the channel doesn't have. The [skip ci] in bump_message
+        # prevents a publish loop. A publish_current run has nothing new
+        # to push and this is a no-op.
+        run: git push origin "HEAD:${GITHUB_REF_NAME:-[[ default_branch ]]}" --tags

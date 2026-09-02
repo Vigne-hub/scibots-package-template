@@ -1,0 +1,71 @@
+[project]
+name = "[[ package_name ]]"
+version = "[[ version ]]"
+description = "[[ description ]]"
+readme = "README.md"
+requires-python = ">=[[ python_min ]]"
+license = "[[ license ]]"
+license-files = ["[[ license_file ]]"]
+[% if scripts %]
+[project.scripts]
+[% for name, target in scripts.items() %]
+[[ name ]] = "[[ target ]]"
+[% endfor %]
+[% endif %]
+
+[project.urls]
+Homepage = "[[ homepage ]]"
+
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+# Package data is selected by MANIFEST.in.
+include-package-data = true
+
+[tool.setuptools.packages.find]
+[% if package_dir == "src" %]
+where = ["src"]
+[% else %]
+include = ["[[ module_name ]]*"]
+[% endif %]
+
+# --- pixi -----------------------------------------------------------------
+# `pixi build` builds the noarch conda package with the pixi-build-python
+# backend; conda run dependencies live in [tool.pixi.package.run-dependencies].
+[tool.pixi.workspace]
+channels = ["conda-forge", "alexsk", "vignesh229", "https://prefix.dev/[[ channel_ref ]]"]
+platforms = ["win-64", "linux-64"]
+preview = ["pixi-build"]
+
+[tool.pixi.package]
+name = "[[ package_name ]]"
+version = "[[ version ]]"
+
+[tool.pixi.package.build.backend]
+name = "pixi-build-python"
+version = "0.*"
+channels = ["https://prefix.dev/conda-forge"]
+
+[tool.pixi.package.host-dependencies]
+setuptools = ">=77"
+
+[tool.pixi.package.run-dependencies]
+[% for name, spec in run_dependencies.items() %]
+"[[ name ]]" = "[[ spec ]]"
+[% endfor %]
+
+# --- commitizen -----------------------------------------------------------
+# `cz bump` derives the next version from Conventional Commits, stamps every
+# copy of the version below, updates CHANGELOG.md and tags vX.Y.Z.
+[tool.commitizen]
+name = "cz_conventional_commits"
+version_provider = "pep621"
+tag_format = "v$version"
+bump_message = "chore: release v$new_version [skip ci]"
+update_changelog_on_bump = true
+version_files = [
+    "pyproject.toml:^version",
+    "[[ module_dir ]]/_version.py:^__version__",
+]

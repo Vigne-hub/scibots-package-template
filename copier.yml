@@ -1,0 +1,101 @@
+# Copier template: pixi build + commitizen releases + prefix.dev publishing
+# for the sci-bots dependency stack (forks of AlexSklav/*).
+#
+#   pixi exec --spec copier -- copier copy --trust <this dir> <repo> -d package_name=... ...
+#   pixi exec --spec copier -- copier update --trust        (inside a repo, later)
+#
+# Jinja delimiters are [[ ]] / [% %] so that GitHub's ${{ }} and
+# rattler-build's ${{ }} can be written literally in the templates.
+_min_copier_version: "9.0.0"
+_answers_file: .copier-answers.yml
+_templates_suffix: .jinja
+_envops:
+  block_start_string: "[%"
+  block_end_string: "%]"
+  variable_start_string: "[["
+  variable_end_string: "]]"
+  comment_start_string: "[#"
+  comment_end_string: "#]"
+_exclude:
+  - copier.yml
+  - scripts
+  - README.md
+  - .git
+_tasks:
+  # Static _version.py, retire versioneer/setup.py/.conda-recipe, tidy
+  # MANIFEST.in and .gitignore.
+  - ["python", "[[ _copier_conf.src_path ]]/scripts/post_gen.py",
+     "--module-dir", "[[ module_dir ]]", "--version", "[[ version ]]"]
+
+package_name:
+  type: str
+  help: Conda / distribution package name (e.g. or-event)
+
+module_name:
+  type: str
+  default: "[[ package_name | replace('-', '_') ]]"
+  help: Importable module name
+
+package_dir:
+  type: str
+  default: "."
+  choices: [".", "src"]
+  help: Directory that contains the module ("." for a flat layout, "src" for a src layout)
+
+module_dir:
+  type: str
+  default: "[[ module_name if package_dir == '.' else package_dir ~ '/' ~ module_name ]]"
+  when: false
+
+version:
+  type: str
+  help: Current version (the latest vX.Y.Z tag without the v); commitizen bumps from here
+
+description:
+  type: str
+  help: One-line description
+
+homepage:
+  type: str
+  default: "https://github.com/Vigne-hub/[[ package_name ]]"
+
+license:
+  type: str
+  default: BSD-3-Clause
+  help: SPDX license identifier
+
+license_file:
+  type: str
+  default: LICENSE.md
+  help: License file in the repo (LICENSE.md, COPYING, ...)
+
+python_min:
+  type: str
+  default: "3.9"
+  help: Minimum Python version
+
+run_dependencies:
+  type: yaml
+  default: {}
+  help: 'Conda run dependencies as a mapping, e.g. {pint: "*", "path-helpers": ">=0.8"}'
+
+scripts:
+  type: yaml
+  default: {}
+  help: 'Console scripts as a mapping, e.g. {my-cli: "my_module.cli:main"}'
+
+flavor:
+  type: str
+  default: python
+  choices:
+    "pure Python, noarch (pixi-build-python)": python
+  help: Package flavor
+
+default_branch:
+  type: str
+  default: master
+
+channel_ref:
+  type: str
+  default: vigne-hub/scibots
+  help: prefix.dev channel as namespace/channel (canonical reference used for uploads)
