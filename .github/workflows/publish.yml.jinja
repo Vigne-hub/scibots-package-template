@@ -127,7 +127,7 @@ jobs:
           else
             echo "No PREFIX_API_KEY secret; using trusted publishing (OIDC)."
           fi
-          pixi upload prefix --channel [[ channel_ref ]] dist/*.conda
+          pixi upload prefix --skip-existing --channel [[ channel_ref ]] dist/*.conda
 
       - name: Push release commit + tag
         if: steps.bump.outputs.skip != 'true'
