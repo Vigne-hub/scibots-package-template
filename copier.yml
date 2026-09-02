@@ -28,7 +28,8 @@ _tasks:
   # MANIFEST.in and .gitignore.
   - ["python", "[[ _copier_conf.src_path ]]/scripts/post_gen.py",
      "--module-dir", "[[ module_dir ]]", "--version", "[[ version ]]",
-     "--flavor", "[[ flavor ]]", "--package-name", "[[ package_name ]]"]
+     "--flavor", "[[ flavor ]]", "--package-name", "[[ package_name ]]",
+     "--module-name", "[[ module_name ]]", "--lib-name", "[[ lib_name | default('') ]]"]
 
 package_name:
   type: str
@@ -106,6 +107,12 @@ dev_run_dependencies:
   default: {}
   when: "[[ flavor == 'headers' ]]"
   help: 'Conda run dependencies of the <name>-dev headers package'
+
+lib_name:
+  type: str
+  default: "[[ package_name.split('-') | map('capitalize') | join('') ]]"
+  when: "[[ flavor == 'headers' ]]"
+  help: Arduino library name used by file_handler.py (e.g. ArduinoRpc, NadaMQ, nanopb)
 
 default_branch:
   type: str

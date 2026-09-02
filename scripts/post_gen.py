@@ -37,7 +37,8 @@ def read_version() -> str:
 '''
 
 
-def patch_file_handler(root: pathlib.Path, module_dir: str, package_name: str) -> None:
+def patch_file_handler(root: pathlib.Path, module_dir: str, package_name: str,
+                       module_name: str = '', lib_name: str = '') -> None:
     fh = root / 'file_handler.py'
     if not fh.exists():
         print('WARNING: file_handler.py not found; nothing to patch', file=sys.stderr)
@@ -71,11 +72,21 @@ def patch_file_handler(root: pathlib.Path, module_dir: str, package_name: str) -
         "parser.add_argument('package_name')":
             f"parser.add_argument('package_name', nargs='?', default={package_name!r})",
     }
+    # Some repos (nadamq, nanopb-helpers) also take module_name / lib_name.
+    optional = {
+        "parser.add_argument('module_name')":
+            f"parser.add_argument('module_name', nargs='?', default={module_name!r})",
+        "parser.add_argument('lib_name')":
+            f"parser.add_argument('lib_name', nargs='?', default={lib_name!r})",
+    }
     for old, new in replacements.items():
         if old in s:
             s = s.replace(old, new, 1)
         else:
             problems.append(f'argument line not found: {old}')
+    for old, new in optional.items():
+        if old in s:
+            s = s.replace(old, new, 1)
 
     if s != original:
         fh.write_text(s)
@@ -90,6 +101,8 @@ def main():
     parser.add_argument('--version', required=True)
     parser.add_argument('--flavor', default='python')
     parser.add_argument('--package-name', default='')
+    parser.add_argument('--module-name', default='')
+    parser.add_argument('--lib-name', default='')
     args = parser.parse_args()
     root = pathlib.Path.cwd()
 
@@ -126,7 +139,8 @@ def main():
         print('added .pixi/ to .gitignore')
 
     if args.flavor == 'headers':
-        patch_file_handler(root, args.module_dir, args.package_name)
+        patch_file_handler(root, args.module_dir, args.package_name,
+                           args.module_name, args.lib_name)
 
 
 if __name__ == '__main__':
