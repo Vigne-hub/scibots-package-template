@@ -39,6 +39,11 @@ on:
         type: boolean
         required: false
         default: false
+      force_upload:
+        description: "Overwrite packages that already exist on the channel"
+        type: boolean
+        required: false
+        default: false
 
 concurrency:
   group: publish
@@ -127,7 +132,11 @@ jobs:
           else
             echo "No PREFIX_API_KEY secret; using trusted publishing (OIDC)."
           fi
-          pixi upload prefix --skip-existing --channel [[ channel_ref ]] dist/*.conda
+          if [ "${{ github.event.inputs.force_upload }}" = "true" ]; then
+            pixi upload prefix --force --channel [[ channel_ref ]] dist/*.conda
+          else
+            pixi upload prefix --skip-existing --channel [[ channel_ref ]] dist/*.conda
+          fi
 
       - name: Push release commit + tag
         if: steps.bump.outputs.skip != 'true'
