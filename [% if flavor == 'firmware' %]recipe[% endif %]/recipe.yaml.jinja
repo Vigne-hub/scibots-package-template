@@ -51,6 +51,7 @@ requirements:
     - python
     - pip
     - setuptools
+    - platformio >=6.1.16
 [% for name, spec in host_dependencies.items() %]
     - [[ name ]][[ (' ' ~ spec) if spec and spec != '*' else '' ]]
 [% endfor %]

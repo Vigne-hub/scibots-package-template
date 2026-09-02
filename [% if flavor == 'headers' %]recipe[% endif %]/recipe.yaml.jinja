@@ -53,6 +53,9 @@ outputs:
         - python
         - pip
         - setuptools
+        # file_handler.py drives PlatformIO; older platformio builds (5.2.2) resolve
+        # otherwise and their `pio` CLI lacks `run`.
+        - platformio >=6.1.16
 [% for name, spec in host_dependencies.items() %]
         - [[ name ]][[ (' ' ~ spec) if spec and spec != '*' else '' ]]
 [% endfor %]
@@ -93,6 +96,9 @@ outputs:
         - python
         - pip
         - setuptools
+        # file_handler.py drives PlatformIO; older platformio builds (5.2.2) resolve
+        # otherwise and their `pio` CLI lacks `run`.
+        - platformio >=6.1.16
 [% for name, spec in host_dependencies.items() %]
         - [[ name ]][[ (' ' ~ spec) if spec and spec != '*' else '' ]]
 [% endfor %]
