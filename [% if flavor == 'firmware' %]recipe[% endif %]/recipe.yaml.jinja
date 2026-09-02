@@ -1,0 +1,81 @@
+# rattler-build recipe, driven by `pixi build` / `pixi upload` (see
+# pyproject.toml). Ported from the former conda-build .conda-recipe/meta.yaml.
+#
+# file_handler.py copies the Arduino library into $PREFIX/share/platformio/
+# include, compiles the firmware with PlatformIO and drops the hex files under
+# $PREFIX/share/platformio/bin/[[ package_name ]]/<env>/; pip installs the
+# Python package. One noarch package holds both (like the old recipe).
+#
+# Generated from scibots-package-template; edit there and `copier update`.
+context:
+  name: [[ package_name ]]
+  version: "[[ version ]]"
+
+package:
+  name: ${{ name }}
+  version: ${{ version }}
+
+source:
+  path: ..
+  # Several sci-bots repos force-track files under gitignored directories,
+  # so the gitignore cannot select the sources; exclude the obvious junk.
+  use_gitignore: false
+  filter:
+    exclude:
+      - .git/**
+      - .pixi/**
+      - .pio/**
+      - build/**
+      - dist/**
+      - .idea/**
+      - "**/__pycache__/**"
+      - "**/*.pyc"
+
+build:
+  number: 0
+  noarch: python
+  script:
+    # SRC_DIR / PREFIX / package name default from the build environment.
+    - python file_handler.py
+    - python -m pip install . --no-deps --no-build-isolation -vv
+[% if scripts %]
+  python:
+    entry_points:
+[% for name, target in scripts.items() %]
+      - [[ name ]] = [[ target ]]
+[% endfor %]
+[% endif %]
+
+requirements:
+  host:
+    - python
+    - pip
+    - setuptools
+[% for name, spec in host_dependencies.items() %]
+    - [[ name ]][[ (' ' ~ spec) if spec and spec != '*' else '' ]]
+[% endfor %]
+    # path-helpers imports ntfsutils on Windows
+    - if: win
+      then: ntfsutils
+  run:
+    - python >=[[ python_min ]]
+[% for name, spec in run_dependencies.items() %]
+    - [[ name ]][[ (' ' ~ spec) if spec and spec != '*' else '' ]]
+[% endfor %]
+
+tests:
+  - python:
+      imports:
+        - [[ module_name ]]
+      pip_check: false
+  - script:
+      # At least one compiled firmware must ship with the package.
+      - python -c "import os, pathlib, sys; hexes = list((pathlib.Path(os.environ['PREFIX']) / 'share' / 'platformio' / 'bin' / '[[ package_name ]]').rglob('firmware.hex')); print(hexes); sys.exit(0 if hexes else 1)"
+
+about:
+  homepage: [[ homepage ]]
+  license: [[ license ]]
+[% if license_file %]
+  license_file: [[ license_file ]]
+[% endif %]
+  summary: [[ description ]]

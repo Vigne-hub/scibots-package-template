@@ -88,6 +88,29 @@ def patch_file_handler(root: pathlib.Path, module_dir: str, package_name: str,
         if old in s:
             s = s.replace(old, new, 1)
 
+    # 3. firmware builds: fail loudly and keep the PlatformIO core dir short on
+    #    Windows (rattler-build's HOME is deep enough to exceed MAX_PATH).
+    if "subprocess.run(['pio', 'run'], env=env)" in s:
+        s = s.replace("subprocess.run(['pio', 'run'], env=env)",
+                      "subprocess.run(['pio', 'run'], env=env, check=True)")
+        s = re.sub(r"
+(\s*)try:
+((?:    .*
+|\s*
+)*?)except FileNotFoundError:
+    print\('Failed to generate firmware'\)
+",
+                   lambda m: '
+' + re.sub(r'^' + m.group(1) + '    ', m.group(1), m.group(2), flags=re.M), s, count=1)
+        core = ("    if 'PLATFORMIO_CORE_DIR' not in env and os.name == 'nt' and env.get('HOMEDRIVE') and env.get('HOMEPATH'):
+"
+                "        env['PLATFORMIO_CORE_DIR'] = os.path.join(env['HOMEDRIVE'] + env['HOMEPATH'], '.platformio')
+")
+        s = s.replace("    env['PLATFORMIO_LIB_EXTRA_DIRS'] = str(pioh.conda_arduino_include_path())
+",
+                      "    env['PLATFORMIO_LIB_EXTRA_DIRS'] = str(pioh.conda_arduino_include_path())
+" + core, 1)
+
     if s != original:
         fh.write_text(s)
         print('patched file_handler.py')
@@ -138,7 +161,7 @@ def main():
         gitignore.write_text(text)
         print('added .pixi/ to .gitignore')
 
-    if args.flavor == 'headers':
+    if args.flavor in ('headers', 'firmware'):
         patch_file_handler(root, args.module_dir, args.package_name,
                            args.module_name, args.lib_name)
 

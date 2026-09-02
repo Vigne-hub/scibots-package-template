@@ -43,6 +43,13 @@ on:
 concurrency:
   group: publish
   cancel-in-progress: false
+[% if flavor == 'firmware' %]
+
+env:
+  # rattler-build runs the build with HOME inside its work directory; pin the
+  # PlatformIO core dir so the platform/toolchain downloads are cacheable.
+  PLATFORMIO_CORE_DIR: /home/runner/.platformio
+[% endif %]
 
 jobs:
   publish:
@@ -60,6 +67,14 @@ jobs:
           pixi-version: v0.78.0
           run-install: false
 
+[% if flavor == 'firmware' %]
+      - name: Cache PlatformIO
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.PLATFORMIO_CORE_DIR }}
+          key: platformio-${{ runner.os }}-${{ hashFiles('platformio.ini') }}
+
+[% endif %]
       - name: Install commitizen
         run: pipx install "commitizen>=4,<5"
 

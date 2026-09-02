@@ -94,12 +94,13 @@ flavor:
   choices:
     "pure Python, noarch (pixi-build-python)": python
     "Python + <name>-dev Arduino headers (rattler-build recipe, file_handler.py)": headers
+    "Python + compiled firmware in one package (rattler-build recipe, PlatformIO)": firmware
   help: Package flavor
 
 host_dependencies:
   type: yaml
   default: {}
-  when: "[[ flavor == 'headers' ]]"
+  when: "[[ flavor in ('headers', 'firmware') ]]"
   help: 'Conda build/host dependencies for file_handler.py (mapping name: spec, "*" for any)'
 
 dev_run_dependencies:
@@ -111,7 +112,7 @@ dev_run_dependencies:
 lib_name:
   type: str
   default: "[[ package_name.split('-') | map('capitalize') | join('') ]]"
-  when: "[[ flavor == 'headers' ]]"
+  when: "[[ flavor in ('headers', 'firmware') ]]"
   help: Arduino library name used by file_handler.py (e.g. ArduinoRpc, NadaMQ, nanopb)
 
 default_branch:

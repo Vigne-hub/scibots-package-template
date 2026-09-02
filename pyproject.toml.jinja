@@ -34,9 +34,9 @@ include = ["[[ module_name ]]*"]
 [% endif %]
 
 # --- pixi -----------------------------------------------------------------
-[% if flavor == 'headers' %]
-# `pixi build` builds the conda packages through the rattler-build backend
-# from recipe/recipe.yaml (Python package + <name>-dev Arduino headers).
+[% if flavor in ('headers', 'firmware') %]
+# `pixi build` builds the conda package(s) through the rattler-build backend
+# from recipe/recipe.yaml.
 # Binary dependencies are declared in the recipe, not here.
 [% else %]
 # `pixi build` builds the noarch conda package with the pixi-build-python
@@ -51,7 +51,7 @@ preview = ["pixi-build"]
 name = "[[ package_name ]]"
 version = "[[ version ]]"
 
-[% if flavor == 'headers' %]
+[% if flavor in ('headers', 'firmware') %]
 [tool.pixi.package.build.backend]
 name = "pixi-build-rattler-build"
 version = "0.*"
@@ -83,7 +83,7 @@ update_changelog_on_bump = true
 version_files = [
     "pyproject.toml:^version",
     "[[ module_dir ]]/_version.py:^__version__",
-[% if flavor == 'headers' %]
+[% if flavor in ('headers', 'firmware') %]
     "recipe/recipe.yaml:^  version",
 [% endif %]
 ]
