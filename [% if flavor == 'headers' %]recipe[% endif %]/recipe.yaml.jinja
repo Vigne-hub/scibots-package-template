@@ -19,8 +19,21 @@ recipe:
   version: ${{ version }}
 
 source:
-  # .gitignore is honoured, so generated files and .pixi/ stay out.
   path: ..
+  # Several sci-bots repos force-track files under gitignored directories
+  # (e.g. the Arduino library under <module>/Arduino/library/*), so the
+  # gitignore cannot select the sources; exclude the obvious junk instead.
+  use_gitignore: false
+  filter:
+    exclude:
+      - .git/**
+      - .pixi/**
+      - .pio/**
+      - build/**
+      - dist/**
+      - .idea/**
+      - "**/__pycache__/**"
+      - "**/*.pyc"
 
 build:
   number: 0
