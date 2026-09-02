@@ -16,6 +16,8 @@ _envops:
   variable_end_string: "]]"
   comment_start_string: "[#"
   comment_end_string: "#]"
+  trim_blocks: true
+  lstrip_blocks: true
 _exclude:
   - copier.yml
   - scripts
