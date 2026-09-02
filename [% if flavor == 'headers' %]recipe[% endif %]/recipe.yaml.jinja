@@ -41,14 +41,14 @@ outputs:
         - pip
         - setuptools
 [% for name, spec in host_dependencies.items() %]
-        - [[ name ]][% if spec and spec != '*' %] [[ spec ]][% endif %]
+        - [[ name ]][[ (' ' ~ spec) if spec and spec != '*' else '' ]]
 [% endfor %]
         # path-helpers imports ntfsutils on Windows
         - if: win
           then: ntfsutils
       run:
 [% for name, spec in dev_run_dependencies.items() %]
-        - [[ name ]][% if spec and spec != '*' %] [[ spec ]][% endif %]
+        - [[ name ]][[ (' ' ~ spec) if spec and spec != '*' else '' ]]
 [% endfor %]
     about:
       homepage: [[ homepage ]]
@@ -81,7 +81,7 @@ outputs:
         - pip
         - setuptools
 [% for name, spec in host_dependencies.items() %]
-        - [[ name ]][% if spec and spec != '*' %] [[ spec ]][% endif %]
+        - [[ name ]][[ (' ' ~ spec) if spec and spec != '*' else '' ]]
 [% endfor %]
         - if: win
           then: ntfsutils
@@ -89,7 +89,7 @@ outputs:
         - python >=[[ python_min ]]
         - ${{ pin_subpackage(name + '-dev', upper_bound='x.x') }}
 [% for name, spec in run_dependencies.items() %]
-        - [[ name ]][% if spec and spec != '*' %] [[ spec ]][% endif %]
+        - [[ name ]][[ (' ' ~ spec) if spec and spec != '*' else '' ]]
 [% endfor %]
     tests:
       - python:
