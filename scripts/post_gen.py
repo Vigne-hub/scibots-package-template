@@ -6,10 +6,14 @@ Runs inside the target repository (copier `_tasks`):
 - removes versioneer / setup.py / setup.cfg / .conda-recipe
 - drops versioneer lines from MANIFEST.in
 - makes sure .pixi/ is ignored
+- headers flavor: patches file_handler.py so it no longer imports versioneer
+  and takes SRC_DIR / PREFIX / the package name from the build environment
 """
 import argparse
 import pathlib
+import re
 import shutil
+import sys
 
 VERSION_TEMPLATE = '''# Stamped by `cz bump` (see [tool.commitizen] in pyproject.toml). Keep the
 # `__version__ = "..."` line at column 0 so the version_files regex matches.
@@ -21,11 +25,71 @@ def get_versions():
     return {{"version": __version__}}
 '''
 
+READ_VERSION = '''
+
+def read_version() -> str:
+    # Read the version without importing the package (its generated modules
+    # may not exist yet while this script runs).
+    import pathlib
+    import re as _re
+    text = pathlib.Path(__file__).parent.joinpath({module_dir!r}, '_version.py').read_text()
+    return _re.search(r'^__version__ = "([^"]+)"', text, _re.M).group(1)
+'''
+
+
+def patch_file_handler(root: pathlib.Path, module_dir: str, package_name: str) -> None:
+    fh = root / 'file_handler.py'
+    if not fh.exists():
+        print('WARNING: file_handler.py not found; nothing to patch', file=sys.stderr)
+        return
+    s = fh.read_text()
+    original = s
+    problems = []
+
+    # 1. versioneer -> static version
+    s = re.sub(r'^import versioneer\n', '', s, count=1, flags=re.M)
+    if 'versioneer.get_version()' in s:
+        s = s.replace('versioneer.get_version()', 'read_version()')
+        # insert read_version() after the last top-level import block
+        imports = list(re.finditer(r'^(?:from \S+ import .*|import \S+.*)\n', s, flags=re.M))
+        if imports:
+            pos = imports[-1].end()
+            s = s[:pos] + READ_VERSION.format(module_dir=module_dir) + s[pos:]
+        else:
+            problems.append('could not place read_version()')
+    if 'versioneer' in s:
+        problems.append('versioneer still referenced')
+
+    # 2. positional args default from the rattler-build environment
+    if 'import os\n' not in s:
+        s = s.replace('import argparse\n', 'import os\nimport argparse\n', 1)
+    replacements = {
+        "parser.add_argument('source_dir')":
+            "parser.add_argument('source_dir', nargs='?', default=os.environ.get('SRC_DIR', '.'))",
+        "parser.add_argument('prefix')":
+            "parser.add_argument('prefix', nargs='?', default=os.environ.get('PREFIX'))",
+        "parser.add_argument('package_name')":
+            f"parser.add_argument('package_name', nargs='?', default={package_name!r})",
+    }
+    for old, new in replacements.items():
+        if old in s:
+            s = s.replace(old, new, 1)
+        else:
+            problems.append(f'argument line not found: {old}')
+
+    if s != original:
+        fh.write_text(s)
+        print('patched file_handler.py')
+    for p in problems:
+        print(f'WARNING: file_handler.py: {p} -- fix by hand', file=sys.stderr)
+
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--module-dir', required=True)
     parser.add_argument('--version', required=True)
+    parser.add_argument('--flavor', default='python')
+    parser.add_argument('--package-name', default='')
     args = parser.parse_args()
     root = pathlib.Path.cwd()
 
@@ -60,6 +124,9 @@ def main():
         text += '# pixi\n.pixi/\n'
         gitignore.write_text(text)
         print('added .pixi/ to .gitignore')
+
+    if args.flavor == 'headers':
+        patch_file_handler(root, args.module_dir, args.package_name)
 
 
 if __name__ == '__main__':

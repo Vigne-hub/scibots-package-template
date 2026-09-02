@@ -5,7 +5,9 @@ description = "[[ description ]]"
 readme = "README.md"
 requires-python = ">=[[ python_min ]]"
 license = "[[ license ]]"
+[% if license_file %]
 license-files = ["[[ license_file ]]"]
+[% endif %]
 [% if scripts %]
 [project.scripts]
 [% for name, target in scripts.items() %]
@@ -32,8 +34,14 @@ include = ["[[ module_name ]]*"]
 [% endif %]
 
 # --- pixi -----------------------------------------------------------------
+[% if flavor == 'headers' %]
+# `pixi build` builds the conda packages through the rattler-build backend
+# from recipe/recipe.yaml (Python package + <name>-dev Arduino headers).
+# Binary dependencies are declared in the recipe, not here.
+[% else %]
 # `pixi build` builds the noarch conda package with the pixi-build-python
 # backend; conda run dependencies live in [tool.pixi.package.run-dependencies].
+[% endif %]
 [tool.pixi.workspace]
 channels = ["conda-forge", "alexsk", "vignesh229", "https://prefix.dev/[[ channel_ref ]]"]
 platforms = ["win-64", "linux-64"]
@@ -43,6 +51,12 @@ preview = ["pixi-build"]
 name = "[[ package_name ]]"
 version = "[[ version ]]"
 
+[% if flavor == 'headers' %]
+[tool.pixi.package.build.backend]
+name = "pixi-build-rattler-build"
+version = "0.*"
+channels = ["https://prefix.dev/conda-forge"]
+[% else %]
 [tool.pixi.package.build.backend]
 name = "pixi-build-python"
 version = "0.*"
@@ -55,6 +69,7 @@ setuptools = ">=77"
 [% for name, spec in run_dependencies.items() %]
 "[[ name ]]" = "[[ spec ]]"
 [% endfor %]
+[% endif %]
 
 # --- commitizen -----------------------------------------------------------
 # `cz bump` derives the next version from Conventional Commits, stamps every
@@ -68,4 +83,7 @@ update_changelog_on_bump = true
 version_files = [
     "pyproject.toml:^version",
     "[[ module_dir ]]/_version.py:^__version__",
+[% if flavor == 'headers' %]
+    "recipe/recipe.yaml:^  version",
+[% endif %]
 ]

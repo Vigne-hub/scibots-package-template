@@ -1,0 +1,105 @@
+# rattler-build recipe, driven by `pixi build` / `pixi upload` (see
+# pyproject.toml). Ported from the former conda-build .conda-recipe/meta.yaml.
+#
+# file_handler.py generates the RPC/Arduino artefacts and copies the Arduino
+# library into $PREFIX/share/platformio/include; pip installs the Python
+# package. Two packages, like the old recipe's outputs:
+#   [[ package_name ]]-dev  (noarch generic)  share/: Arduino headers
+#   [[ package_name ]]      (noarch python)   the Python package; pins -dev
+# Each output is built on its own (the pixi backend does not forward the
+# workspace channels to rattler-build's staging cache).
+#
+# Generated from scibots-package-template; edit there and `copier update`.
+context:
+  name: [[ package_name ]]
+  version: "[[ version ]]"
+
+recipe:
+  name: ${{ name }}
+  version: ${{ version }}
+
+source:
+  # .gitignore is honoured, so generated files and .pixi/ stay out.
+  path: ..
+
+build:
+  number: 0
+
+outputs:
+  - package:
+      name: ${{ name }}-dev
+    build:
+      noarch: generic
+      script:
+        # SRC_DIR / PREFIX / package name default from the build environment.
+        - python file_handler.py
+      files:
+        - share/**
+    requirements:
+      host:
+        - python
+        - pip
+        - setuptools
+[% for name, spec in host_dependencies.items() %]
+        - [[ name ]][% if spec and spec != '*' %] [[ spec ]][% endif %]
+[% endfor %]
+        # path-helpers imports ntfsutils on Windows
+        - if: win
+          then: ntfsutils
+      run:
+[% for name, spec in dev_run_dependencies.items() %]
+        - [[ name ]][% if spec and spec != '*' %] [[ spec ]][% endif %]
+[% endfor %]
+    about:
+      homepage: [[ homepage ]]
+      license: [[ license ]]
+[% if license_file %]
+      license_file: [[ license_file ]]
+[% endif %]
+      summary: [[ description ]] (Arduino headers)
+
+  - package:
+      name: ${{ name }}
+    build:
+      noarch: python
+      script:
+        - python file_handler.py
+        - python -m pip install . --no-deps --no-build-isolation -vv
+      files:
+        - "**/site-packages/[[ module_name ]]/**"
+        - "**/site-packages/[[ module_name ]]-*.dist-info/**"
+[% if scripts %]
+      python:
+        entry_points:
+[% for name, target in scripts.items() %]
+          - [[ name ]] = [[ target ]]
+[% endfor %]
+[% endif %]
+    requirements:
+      host:
+        - python
+        - pip
+        - setuptools
+[% for name, spec in host_dependencies.items() %]
+        - [[ name ]][% if spec and spec != '*' %] [[ spec ]][% endif %]
+[% endfor %]
+        - if: win
+          then: ntfsutils
+      run:
+        - python >=[[ python_min ]]
+        - ${{ pin_subpackage(name + '-dev', upper_bound='x.x') }}
+[% for name, spec in run_dependencies.items() %]
+        - [[ name ]][% if spec and spec != '*' %] [[ spec ]][% endif %]
+[% endfor %]
+    tests:
+      - python:
+          imports:
+            - [[ module_name ]]
+          pip_check: false
+    about:
+      homepage: [[ homepage ]]
+      license: [[ license ]]
+[% if license_file %]
+      license_file: [[ license_file ]]
+[% endif %]
+      summary: [[ description ]]

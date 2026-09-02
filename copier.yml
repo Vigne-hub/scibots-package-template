@@ -27,7 +27,8 @@ _tasks:
   # Static _version.py, retire versioneer/setup.py/.conda-recipe, tidy
   # MANIFEST.in and .gitignore.
   - ["python", "[[ _copier_conf.src_path ]]/scripts/post_gen.py",
-     "--module-dir", "[[ module_dir ]]", "--version", "[[ version ]]"]
+     "--module-dir", "[[ module_dir ]]", "--version", "[[ version ]]",
+     "--flavor", "[[ flavor ]]", "--package-name", "[[ package_name ]]"]
 
 package_name:
   type: str
@@ -68,8 +69,8 @@ license:
 
 license_file:
   type: str
-  default: LICENSE.md
-  help: License file in the repo (LICENSE.md, COPYING, ...)
+  default: ""
+  help: License file in the repo (LICENSE.md, COPYING, ...); empty if there is none
 
 python_min:
   type: str
@@ -91,7 +92,20 @@ flavor:
   default: python
   choices:
     "pure Python, noarch (pixi-build-python)": python
+    "Python + <name>-dev Arduino headers (rattler-build recipe, file_handler.py)": headers
   help: Package flavor
+
+host_dependencies:
+  type: yaml
+  default: {}
+  when: "[[ flavor == 'headers' ]]"
+  help: 'Conda build/host dependencies for file_handler.py (mapping name: spec, "*" for any)'
+
+dev_run_dependencies:
+  type: yaml
+  default: {}
+  when: "[[ flavor == 'headers' ]]"
+  help: 'Conda run dependencies of the <name>-dev headers package'
 
 default_branch:
   type: str
